@@ -45,7 +45,7 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
             data = data.to(device)
             label = label.to(device)
 
-            output, _ = model(data)
+            output = model(data)
             loss = criterion(output, label)
 
             optimizer.zero_grad()
@@ -63,7 +63,7 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
                 data = data.to(device)
                 label = label.to(device)
 
-                val_output, _ = model(data)
+                val_output = model(data)
                 val_loss = criterion(val_output, label)
 
                 acc = (val_output.argmax(dim=1) == label).float().mean()
