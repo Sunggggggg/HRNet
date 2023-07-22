@@ -169,7 +169,7 @@ class HRNet(nn.Module):
 		self.first_transition = self._make_transition_layer(256, mid_ch, 1)
 		self.num_stage = num_stage
 		self.hr_blocks = nn.ModuleList()
-		for i in range(1, num_stage):
+		for i in range(1, num_stage): #1, 2, 3 stage 2 3 4
 			self.hr_blocks.append(HRBlock(mid_ch, i + 1, True if i == num_stage - 1 else False, BasicBlock))
 
 		self.up_samplings = nn.ModuleList()
