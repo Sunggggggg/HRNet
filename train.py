@@ -96,8 +96,8 @@ if __name__ == "__main__" :
     seed_everything(seed)
 
     # Set dataLoader
-    image_size = 224
-    train_loader, valid_loader = get_loaders(dataset_dir, image_size = image_size, batch_size = batch_size)
+    image_size = 128
+    train_loader, valid_loader = get_loaders(dataset_dir, batch_size = batch_size, resolution = image_size)
 
     # Set model
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
