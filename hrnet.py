@@ -21,7 +21,7 @@ class Conv(nn.Module):
 		self.conv_bn = nn.Sequential(
 				nn.Conv2d(in_ch, out_ch, kernel_size, stride, padding, bias=False),
 				nn.BatchNorm2d(out_ch, momentum=BN_MOMENTUM))
-		self.relu = nn.ReLU()
+		self.relu = nn.ReLU(inplace=False)
 		self.relued = relued
 
 	def forward(self, x):
@@ -37,7 +37,7 @@ class BasicBlock(nn.Module):
 		self.conv = nn.Sequential(
 				Conv(in_ch, out_ch),
 				Conv(in_ch, out_ch, relued=False))
-		self.relu = nn.ReLU()
+		self.relu = nn.ReLU(inplace=False)
 	def forward(self, x):
 		identity = x
 		x = self.conv(x)
@@ -55,7 +55,7 @@ class Bottleneck(nn.Module):
 				Conv(in_ch, out_ch, kernel_size=1),
 				Conv(out_ch, out_ch),
 				Conv(out_ch, out_ch * self.expansion, kernel_size=1, relued=False))
-		self.relu = nn.ReLU()
+		self.relu = nn.ReLU(inplace=False)
 		self.downsampling = downsampling
 
 	def forward(self, x):
@@ -97,7 +97,7 @@ class HRBlock(nn.Module):
 		self.index = index
 		self.last_stage = last_stage
 		self.num_conv_block_per_list = num_conv_block_per_list
-		self.relu = nn.ReLU()
+		self.relu = nn.ReLU(inplace=False)
 
 		self.parallel_conv_lists = nn.ModuleList()
 		for i in range(index):
@@ -165,6 +165,9 @@ class HRNet(nn.Module):
 		self.head = nn.Sequential(
 					Conv(mid_ch * (1 + 2 + 4 + 8), mid_ch * (1 + 2 + 4 + 8), 1),
 					nn.Conv2d(mid_ch * (1 + 2 + 4 + 8), out_ch, 1))
+		self.avgpool = nn.AdaptiveAvgPool2d((1, 1)) 
+		self.fclayer = nn.Linear(out_ch, 10)
+
 		self.first_layer = self._make_layer(64, 64, Bottleneck, 4)
 		self.first_transition = self._make_transition_layer(256, mid_ch, 1)
 		self.num_stage = num_stage
@@ -185,9 +188,8 @@ class HRNet(nn.Module):
 				nn.init.constant_(m.weight, 1)
 				nn.init.constant_(m.bias, 0)
 
-		self.fclayer = nn.Linear(out_ch, 10)
-		self.avgpool = nn.AdaptiveAvgPool2d((1, 1)) 
-        
+		
+		
 	def _make_layer(self, in_ch, ch, block, num):
 		downsampling = None
 		if in_ch != ch * block.expansion:
@@ -220,5 +222,5 @@ class HRNet(nn.Module):
 		x = self.avgpool(x)
 		x = x.view(x.shape[0], -1)
 		x = self.fclayer(x)
-		
+
 		return x
