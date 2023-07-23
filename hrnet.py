@@ -220,7 +220,7 @@ class HRNet(nn.Module):
 		x = self.head(x)
 
 		x = self.avgpool(x)
-		x = x.view(x.shape[0], -1)
+		x = x.view(x.shape[0], -1).float().clone()
 		x = self.fclayer(x)
 
 		return x
