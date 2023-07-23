@@ -32,7 +32,7 @@ def parse_option():
 
 def train(model, device, train_loader, valid_loader, weights_path = './Model_weight', epochs = 20, lr = 0.0001, gamma = 0.7):
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.SGD(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
 
     os.makedirs(weights_path, exist_ok = True)
@@ -41,20 +41,31 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
         epoch_loss = 0
         epoch_accuracy = 0
 
+        running_loss = 0.0
+        running_corrects = 0
+
         for data, label in tqdm(train_loader):
             data = data.to(device)
             label = label.to(device)
 
-            output = model(data)
-            loss = criterion(output, label)
+            optimizer.zero_grad() 
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            with torch.set_grad_enabled(True):
+                outputs = model(data)
+                loss = criterion(outputs, label)
 
-            acc = (output.argmax(dim=1) == label).float().mean()
-            epoch_accuracy += acc / len(train_loader)
-            epoch_loss += loss / len(train_loader)
+                _, preds = torch.max(outputs, 1)
+
+                loss.backward()     
+                optimizer.step()
+
+            running_loss += loss.item() * data.size(0)
+            running_corrects += torch.sum(preds == label.data)
+
+        epoch_loss = running_loss / len(train_loader.dataset)
+        epoch_acc = running_corrects.double() / len(train_loader.dataset)
+
+        print('{} Loss: {:.4f} Acc: {:.4f}'.format('train', epoch_loss, epoch_acc))
 
         with torch.no_grad():
             epoch_val_accuracy = 0
@@ -72,7 +83,7 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
                 epoch_val_loss += val_loss / len(valid_loader)
 
         print(
-            f"Epoch : {epoch+1} - loss : {epoch_loss:.4f} - acc: {epoch_accuracy:.4f} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
+            f"Epoch : {epoch+1} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
         )
 
         if (epoch + 1) % 10 == 0 :
