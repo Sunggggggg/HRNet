@@ -35,12 +35,6 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
 
-    ####
-    avgpool = nn.AdaptiveAvgPool2d((1, 1))
-    fc = nn.Linear(in_features = 512, out_features = 10, device = device)
-    ####
-
-
     os.makedirs(weights_path, exist_ok = True)
 
     for epoch in range(epochs):
@@ -52,10 +46,6 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
             label = label.to(device)
 
             output = model(data)
-            output = avgpool(output)
-            output = output.view(output.shape[0], -1) 
-            output = fc(output)
-
             loss = criterion(output, label)
 
             optimizer.zero_grad()
@@ -74,9 +64,6 @@ def train(model, device, train_loader, valid_loader, weights_path = './Model_wei
                 label = label.to(device)
 
                 val_output = model(data)
-                val_output = avgpool(val_output)
-                val_output = val_output.view(val_output.shape[0], -1) 
-                val_output = fc(val_output)
 
                 val_loss = criterion(val_output, label)
 

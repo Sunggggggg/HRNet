@@ -185,6 +185,9 @@ class HRNet(nn.Module):
 				nn.init.constant_(m.weight, 1)
 				nn.init.constant_(m.bias, 0)
 
+		self.fclayer = nn.Linear(out_ch, 10)
+		self.avgpool = nn.AdaptiveAvgPool2d((1, 1)) 
+        
 	def _make_layer(self, in_ch, ch, block, num):
 		downsampling = None
 		if in_ch != ch * block.expansion:
@@ -213,4 +216,9 @@ class HRNet(nn.Module):
 			res_list.append(m(t))
 		x = torch.cat(res_list, dim=1)
 		x = self.head(x)
+
+		x = self.avgpool(x)
+		x = x.view(x.shape[0], -1)
+		x = self.fclayer(x)
+		
 		return x
