@@ -123,9 +123,6 @@ if __name__ == "__main__" :
     image_size = 128
     train_loader, valid_loader = get_loaders(dataset_dir, batch_size = batch_size, resolution = image_size)
 
-    # Set model
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
     if checkpoint :
         model = torch.load(checkpoint).to(device)
     else :
