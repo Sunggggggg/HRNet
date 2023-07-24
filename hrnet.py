@@ -188,8 +188,6 @@ class HRNet(nn.Module):
 				nn.init.constant_(m.weight, 1)
 				nn.init.constant_(m.bias, 0)
 
-		
-		
 	def _make_layer(self, in_ch, ch, block, num):
 		downsampling = None
 		if in_ch != ch * block.expansion:
@@ -220,7 +218,7 @@ class HRNet(nn.Module):
 		x = self.head(x)
 
 		x = self.avgpool(x)
-		x = x.view(x.shape[0], -1).float().clone()
+		x = x.view(x.shape[0], -1)
 		x = self.fclayer(x)
 
 		return x
