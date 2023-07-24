@@ -1,4 +1,4 @@
-import torch, os, random, argparse
+import torch, os, random, argparse, time, copy
 import numpy as np
 
 import torch.nn as nn
@@ -8,6 +8,9 @@ from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 from hrnet import HRNet
 from loader import get_loaders
+
+# Detect if we have a GPU available
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def seed_everything(seed):
     random.seed(seed)
@@ -30,56 +33,75 @@ def parse_option():
     args, unparsed = parser.parse_known_args()
     return args
 
-def train(model, device, train_loader, valid_loader, weights_path = './Model_weight', epochs = 20, lr = 0.0001, gamma = 0.7):
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
+def train_model(model, dataloaders, criterion, optimizer, num_epochs=25):
+    since = time.time()
 
-    os.makedirs(weights_path, exist_ok = True)
+    val_acc_history = []
 
-    for epoch in range(epochs):
-        epoch_loss = 0
-        epoch_accuracy = 0
+    best_model_wts = copy.deepcopy(model.state_dict())
+    best_acc = 0.0
 
-        for data, label in tqdm(train_loader):
-            data = data.to(device)
-            label = label.to(device)
-            optimizer.zero_grad()
+    model = model.to(device)
+    for epoch in range(num_epochs):
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+        print('-' * 10)
 
-            output = model(data)
-            loss = criterion(output, label)
+        for phase in ['train', 'val']:
+            if phase == 'train':
+                model.train()  
+            else:
+                model.eval()  
 
-            
-            loss.backward()
-            optimizer.step()
+            running_loss = 0.0
+            running_corrects = 0
 
-            acc = (output.argmax(dim=1) == label).float().mean()
-            epoch_accuracy += acc / len(train_loader)
-            epoch_loss += loss / len(train_loader)
+            # Iterate over data.
+            for inputs, labels in dataloaders[phase]:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
 
-        with torch.no_grad():
-            epoch_val_accuracy = 0
-            epoch_val_loss = 0
-            for data, label in valid_loader:
-                data = data.to(device)
-                label = label.to(device)
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
-                val_output = model(data)
+                # forward
+                # track history if only in train
+                with torch.set_grad_enabled(phase == 'train'):
+                    # Get model outputs and calculate loss
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
 
-                val_loss = criterion(val_output, label)
+                    _, preds = torch.max(outputs, 1)
 
-                acc = (val_output.argmax(dim=1) == label).float().mean()
-                epoch_val_accuracy += acc / len(valid_loader)
-                epoch_val_loss += val_loss / len(valid_loader)
+                    # backward + optimize only if in training phase
+                    if phase == 'train':
+                        loss.backward()     # Update
+                        optimizer.step()    # optimizer Update
 
-        print(
-            f"Epoch : {epoch+1} - loss : {epoch_loss:.4f} - acc: {epoch_accuracy:.4f} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
-        )
+                # statistics
+                running_loss += loss.item() * inputs.size(0)
+                running_corrects += torch.sum(preds == labels.data)
 
-        if (epoch + 1) % 10 == 0 :
-            torch.save(model, weights_path + f'/HRNet_{epoch + 1}.pth')
-    
-    return model
+            epoch_loss = running_loss / len(dataloaders[phase].dataset)
+            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
+
+            print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+
+            # deep copy the model
+            if phase == 'val' and epoch_acc > best_acc:
+                best_acc = epoch_acc
+                best_model_wts = copy.deepcopy(model.state_dict())
+            if phase == 'val':
+                val_acc_history.append(epoch_acc)
+
+        print()
+
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}'.format(best_acc))
+
+    # load best model weights
+    model.load_state_dict(best_model_wts)
+    return model, val_acc_history
 
 if __name__ == "__main__" :
     # Set Hyperparameters
@@ -114,5 +136,9 @@ if __name__ == "__main__" :
         ).to(device)
 
     # train
-    train_model = train(model, device, train_loader, valid_loader, weights_path, epochs, lr, gamma) 
-    torch.save(train_model, weights_path + '/final_model.pth')
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+    criterion = nn.CrossEntropyLoss()
+    dataloaders = {'train' : train_loader, 'val' : valid_loader}
+    model, val_history = train_model(model, dataloaders, criterion, optimizer, num_epochs=25)
+    
+    torch.save(model, weights_path + '/final_model.pth')
